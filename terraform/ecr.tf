@@ -1,3 +1,4 @@
+#ECR Config File
 variable "app_name" {
   default = "my-app"
 }
