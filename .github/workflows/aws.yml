@@ -21,35 +21,36 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ secrets.AWS_REGION }}
 
-    # 3️⃣ Setup Terraform
+    # 3️⃣ Login to Amazon ECR
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    # 4️⃣ Build Docker image and push to ECR
+    - name: Build and Push Docker image
+      env:
+        REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        REPOSITORY: ${{ secrets.APP_NAME }}
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        docker build -t $REGISTRY/$REPOSITORY:$IMAGE_TAG .
+        docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
+
+    # 5️⃣ Setup Terraform
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v3
 
-    # 4️⃣ Initialize Terraform
+    # 6️⃣ Initialize Terraform
     - name: Terraform Init
       working-directory: terraform
       run: terraform init
 
-    # 5️⃣ Apply Terraform to create infrastructure (ECR, ECS, etc.)
+    # 7️⃣ Apply Terraform to create infrastructure (ECR, ECS, etc.)
     - name: Terraform Apply
       working-directory: terraform
       run: |
         terraform apply -auto-approve \
         -var="image_tag=${{ github.sha }}" \
-        -var="app_name=my-app"
+        -var="app_name=${{ secrets.APP_NAME }}"
 
-    # 6️⃣ Login to Amazon ECR
-    - name: Login to Amazon ECR
-      id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v2
-
-    # 7️⃣ Build Docker image and push to ECR
-    - name: Build and Push Docker image
-      env:
-        REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        REPOSITORY: my-app
-        IMAGE_TAG: ${{ github.sha }}
-      run: |
-        docker build -t $REGISTRY/$REPOSITORY:$IMAGE_TAG .
-        docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
 
