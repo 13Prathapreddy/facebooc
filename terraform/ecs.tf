@@ -19,8 +19,10 @@ resource "aws_ecs_task_definition" "this" {
         {
           containerPort = 16000
           hostPort      = 16000
+          protocol      = "tcp"
         }
       ]
     }
   ])
 }
+

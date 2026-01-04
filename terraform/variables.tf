@@ -9,3 +9,4 @@ variable "app_name" {
 variable "image_tag" {
   description = "Docker image tag from GitHub Actions"
 }
+
