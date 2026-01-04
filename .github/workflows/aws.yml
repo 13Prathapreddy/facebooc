@@ -9,9 +9,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    # 1️⃣ Checkout the repository
     - name: Checkout source code
       uses: actions/checkout@v4
 
+    # 2️⃣ Configure AWS credentials
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
@@ -19,10 +21,29 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ secrets.AWS_REGION }}
 
+    # 3️⃣ Setup Terraform
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+
+    # 4️⃣ Initialize Terraform
+    - name: Terraform Init
+      working-directory: terraform
+      run: terraform init
+
+    # 5️⃣ Apply Terraform to create infrastructure (ECR, ECS, etc.)
+    - name: Terraform Apply
+      working-directory: terraform
+      run: |
+        terraform apply -auto-approve \
+        -var="image_tag=${{ github.sha }}" \
+        -var="app_name=my-app"
+
+    # 6️⃣ Login to Amazon ECR
     - name: Login to Amazon ECR
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v2
 
+    # 7️⃣ Build Docker image and push to ECR
     - name: Build and Push Docker image
       env:
         REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -31,17 +52,4 @@ jobs:
       run: |
         docker build -t $REGISTRY/$REPOSITORY:$IMAGE_TAG .
         docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
-
-    - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v3
-
-    - name: Terraform Init
-      working-directory: terraform
-      run: terraform init
-
-    - name: Terraform Apply
-      working-directory: terraform
-      run: |
-        terraform apply -auto-approve \
-        -var="image_tag=${{ github.sha }}"
 
