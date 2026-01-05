@@ -12,16 +12,25 @@ resource "aws_ecs_task_definition" "this" {
 
   container_definitions = jsonencode([
     {
-      name  = var.app_name
-      image = "${aws_ecr_repository.app.repository_url}:${var.image_tag}"
+      name      = var.app_name
+      image     = "${aws_ecr_repository.app.repository_url}:${var.image_tag}"
       essential = true
+
       portMappings = [
         {
           containerPort = 16000
           hostPort      = 16000
-          protocol      = "tcp"
         }
       ]
+
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          awslogs-group         = "/ecs/${var.app_name}"
+          awslogs-region        = var.aws_region
+          awslogs-stream-prefix = "ecs"
+        }
+      }
     }
   ])
 }
