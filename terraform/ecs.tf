@@ -1,3 +1,9 @@
+# ECS Cluster
+resource "aws_ecs_cluster" "this" {
+  name = "${var.app_name}-cluster"
+}
+
+# ECS Task Definition
 resource "aws_ecs_task_definition" "this" {
   family                   = var.app_name
   requires_compatibilities = ["FARGATE"]
@@ -20,7 +26,7 @@ resource "aws_ecs_task_definition" "this" {
         }
       ]
 
-      # ✅ Logs enabled for CloudWatch
+      # Logs enabled
       logConfiguration = {
         logDriver = "awslogs"
         options = {
@@ -33,6 +39,7 @@ resource "aws_ecs_task_definition" "this" {
   ])
 }
 
+# ECS Service
 resource "aws_ecs_service" "this" {
   name            = "${var.app_name}-service"
   cluster         = aws_ecs_cluster.this.id
