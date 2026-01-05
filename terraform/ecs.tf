@@ -20,7 +20,7 @@ resource "aws_ecs_task_definition" "this" {
         }
       ]
 
-      # Logs enabled for CloudWatch
+      # ✅ Logs enabled for CloudWatch
       logConfiguration = {
         logDriver = "awslogs"
         options = {
