@@ -24,18 +24,28 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ secrets.AWS_REGION }}
 
-    # 3️⃣ Login to Amazon ECR
+    # 3️⃣ Setup Terraform
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+
+    # 4️⃣ Terraform Init
+    - name: Terraform Init
+      working-directory: terraform
+      run: terraform init
+
+    # 5️⃣ Terraform Apply for ECR only
+    - name: Terraform Apply ECR
+      working-directory: terraform
+      run: |
+        terraform apply -auto-approve -target=aws_ecr_repository.app \
+          -var="app_name=${{ env.APP_NAME }}"
+
+    # 6️⃣ Login to Amazon ECR
     - name: Login to Amazon ECR
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v2
 
-    # 4️⃣ Ensure ECR repository exists
-    - name: Ensure ECR repository exists
-      run: |
-        aws ecr describe-repositories --repository-names ${{ env.APP_NAME }} || \
-        aws ecr create-repository --repository-name ${{ env.APP_NAME }}
-
-    # 5️⃣ Build Docker image and push to ECR
+    # 7️⃣ Build Docker image and push to ECR
     - name: Build and Push Docker image
       env:
         REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -47,22 +57,13 @@ jobs:
         echo "Pushing Docker image..."
         docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
 
-    # 6️⃣ Setup Terraform
-    - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v3
-
-    # 7️⃣ Terraform Init
-    - name: Terraform Init
-      working-directory: terraform
-      run: terraform init
-
-    # 8️⃣ Terraform Apply (create ECS Service, Task Definition, etc.)
-    - name: Terraform Apply
+    # 8️⃣ Terraform Apply remaining resources (ECS, Task, etc.)
+    - name: Terraform Apply ECS
       working-directory: terraform
       run: |
         terraform apply -auto-approve \
-        -var="image_tag=${{ github.sha }}" \
-        -var="app_name=${{ env.APP_NAME }}"
+          -var="image_tag=${{ github.sha }}" \
+          -var="app_name=${{ env.APP_NAME }}"
 
 
 
