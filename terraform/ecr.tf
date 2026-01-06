@@ -1,4 +1,4 @@
-#Create aws Resource Repository
+#Create aws Res Repository
 resource "aws_ecr_repository" "app" {
   name = var.app_name
 
