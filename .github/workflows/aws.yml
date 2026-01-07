@@ -26,12 +26,12 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
-      # 1️⃣ Create ECR first
+      # 1️⃣ Create infra (ECR, ECS, etc.)
       - name: Terraform Init
         working-directory: terraform
         run: terraform init -input=false
 
-      - name: Terraform Apply (ECR only)
+      - name: Terraform Apply (Infra)
         working-directory: terraform
         run: |
           terraform apply -auto-approve -input=false \
@@ -52,13 +52,14 @@ jobs:
           docker build -t $REGISTRY/$REPOSITORY:$IMAGE_TAG .
           docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
 
-      # 4️⃣ Deploy ECS using pushed image
-      - name: Terraform Apply (ECS)
+      # 4️⃣ Update ECS with new image
+      - name: Terraform Apply (Deploy)
         working-directory: terraform
         run: |
           terraform apply -auto-approve -input=false \
             -var="app_name=${{ env.APP_NAME }}" \
             -var="image_tag=${{ github.sha }}"
+
 
 
 
