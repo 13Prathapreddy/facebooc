@@ -1,51 +1,71 @@
-name: Terraform ECS Deploy
+name: Terraform Deploy ECS
 
 on:
   push:
     branches:
       - main
 
+env:
+  AWS_REGION: us-east-1
+  APP_NAME: my-app
+  IMAGE_TAG: latest  # Can be overridden per workflow run
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    env:
-      AWS_REGION: us-east-1
-      APP_NAME: my-app
-      IMAGE_TAG: ${{ github.sha }}
 
     steps:
-    - uses: actions/checkout@v3
+      # Step 1: Checkout code
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-    - name: Setup AWS CLI
-      uses: aws-actions/configure-aws-credentials@v2
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ env.AWS_REGION }}
+      # Step 2: Configure AWS credentials
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
 
-    # Step 1: Terraform init & apply ECR/infra (skip ECS service)
-    - name: Terraform Init
-      run: terraform init
+      # Step 3: Set up Terraform
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.7.9
 
-    - name: Terraform Apply ECR/Infra
-      run: terraform apply -auto-approve -var="app_name=$APP_NAME" -var="deploy_ecs_service=false"
+      # Step 4: Terraform init
+      - name: Terraform Init
+        run: terraform init
 
-    # Step 2: Build and push Docker image
-    - name: Login to ECR
-      run: |
-        aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $(terraform output -raw ecr_repository_url)
+      # Step 5: Terraform Plan (optional, for logging)
+      - name: Terraform Plan
+        run: terraform plan -var="image_tag=${{ env.IMAGE_TAG }}"
 
-    - name: Build and Push Docker Image
-      run: |
-        docker build -t $(terraform output -raw ecr_repository_url):$IMAGE_TAG .
-        docker push $(terraform output -raw ecr_repository_url):$IMAGE_TAG
+      # Step 6: Terraform Apply (ECR only)
+      - name: Terraform Apply ECR
+        run: terraform apply -auto-approve -var="image_tag=${{ env.IMAGE_TAG }}" -target=aws_ecr_repository.app
 
-    # Step 3: Terraform apply ECS service with image
-    - name: Terraform Apply ECS Service
-      run: terraform apply -auto-approve -var="app_name=$APP_NAME" -var="image_tag=$IMAGE_TAG" -var="deploy_ecs_service=true"
+      # Step 7: Login to ECR
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
 
+      # Step 8: Build Docker image
+      - name: Build Docker image
+        run: |
+          IMAGE_URI=$(aws ecr describe-repositories --repository-names $APP_NAME --query 'repositories[0].repositoryUri' --output text)
+          docker build -t $APP_NAME:${{ env.IMAGE_TAG }} .
+          docker tag $APP_NAME:${{ env.IMAGE_TAG }} $IMAGE_URI:${{ env.IMAGE_TAG }}
 
+      # Step 9: Push Docker image to ECR
+      - name: Push Docker image
+        run: |
+          IMAGE_URI=$(aws ecr describe-repositories --repository-names $APP_NAME --query 'repositories[0].repositoryUri' --output text)
+          docker push $IMAGE_URI:${{ env.IMAGE_TAG }}
 
+      # Step 10: Terraform Apply ECS (full deployment)
+      - name: Terraform Apply ECS
+        run: terraform apply -auto-approve -var="image_tag=${{ env.IMAGE_TAG }}"
 
 
 
