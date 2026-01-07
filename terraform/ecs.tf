@@ -6,7 +6,7 @@ resource "aws_ecs_cluster" "this" {
 }
 
 ################################
-# CloudWatch Log Group (REQUIRED)
+# CloudWatch Log Group
 ################################
 resource "aws_cloudwatch_log_group" "ecs" {
   name              = "/ecs/${var.app_name}"
@@ -46,7 +46,7 @@ resource "aws_ecs_task_definition" "this" {
       logConfiguration = {
         logDriver = "awslogs"
         options = {
-          awslogs-group         = "/ecs/${var.app_name}"
+          awslogs-group         = aws_cloudwatch_log_group.ecs.name
           awslogs-region        = var.aws_region
           awslogs-stream-prefix = "ecs"
         }
@@ -65,6 +65,8 @@ resource "aws_ecs_service" "this" {
   desired_count   = 1
   launch_type     = "FARGATE"
 
+  force_new_deployment = true
+
   network_configuration {
     subnets          = data.aws_subnets.default.ids
     security_groups  = [aws_security_group.ecs.id]
@@ -74,7 +76,6 @@ resource "aws_ecs_service" "this" {
   deployment_minimum_healthy_percent = 100
   deployment_maximum_percent         = 200
 
-  # Terraform will wait until tasks are healthy
   wait_for_steady_state = true
 
   depends_on = [
