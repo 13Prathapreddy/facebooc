@@ -46,7 +46,7 @@ resource "aws_ecs_task_definition" "this" {
       logConfiguration = {
         logDriver = "awslogs"
         options = {
-          awslogs-group         = aws_cloudwatch_log_group.ecs.name
+          awslogs-group         = "/ecs/${var.app_name}"
           awslogs-region        = var.aws_region
           awslogs-stream-prefix = "ecs"
         }
@@ -62,10 +62,8 @@ resource "aws_ecs_service" "this" {
   name            = "${var.app_name}-service"
   cluster         = aws_ecs_cluster.this.id
   task_definition = aws_ecs_task_definition.this.arn
-  desired_count   = 1
+  desired_count   = 1   # ✅ ECS will start immediately
   launch_type     = "FARGATE"
-
-  force_new_deployment = true
 
   network_configuration {
     subnets          = data.aws_subnets.default.ids
@@ -77,9 +75,5 @@ resource "aws_ecs_service" "this" {
   deployment_maximum_percent         = 200
 
   wait_for_steady_state = true
-
-  depends_on = [
-    aws_ecs_task_definition.this
-  ]
 }
 
