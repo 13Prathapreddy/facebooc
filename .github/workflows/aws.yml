@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 env:
   AWS_REGION: us-east-1
@@ -36,16 +37,19 @@ jobs:
       # Step 4: Terraform init
       - name: Terraform Init
         run: terraform init
+        working-directory: terraform
 
-      # Step 5: Terraform Plan (optional, for logging)
+      # Step 5: Terraform Plan
       - name: Terraform Plan
         run: terraform plan -var="image_tag=${{ env.IMAGE_TAG }}"
+        working-directory: terraform
 
-      # Step 6: Terraform Apply (ECR only)
+      # Step 6: Terraform Apply ECR only (create repo first)
       - name: Terraform Apply ECR
         run: terraform apply -auto-approve -var="image_tag=${{ env.IMAGE_TAG }}" -target=aws_ecr_repository.app
+        working-directory: terraform
 
-      # Step 7: Login to ECR
+      # Step 7: Login to Amazon ECR
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
@@ -66,6 +70,8 @@ jobs:
       # Step 10: Terraform Apply ECS (full deployment)
       - name: Terraform Apply ECS
         run: terraform apply -auto-approve -var="image_tag=${{ env.IMAGE_TAG }}"
+        working-directory: terraform
+
 
 
 
