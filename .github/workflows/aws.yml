@@ -2,68 +2,62 @@ name: Build & Deploy to ECS
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     env:
       APP_NAME: my-app
 
     steps:
-    # 1️⃣ Checkout code
-    - name: Checkout source code
-      uses: actions/checkout@v4
+      # 1️⃣ Checkout code
+      - name: Checkout source code
+        uses: actions/checkout@v4
 
-    # 2️⃣ Configure AWS credentials
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ secrets.AWS_REGION }}
+      # 2️⃣ Configure AWS credentials
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
-    # 3️⃣ Setup Terraform
-    - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v3
+      # 3️⃣ Setup Terraform
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
 
-    # 4️⃣ Terraform Init
-    - name: Terraform Init
-      working-directory: terraform
-      run: terraform init
+      # 4️⃣ Terraform Init
+      - name: Terraform Init
+        working-directory: terraform
+        run: terraform init -input=false
 
-    # 5️⃣ Terraform Apply for ECR only
-    - name: Terraform Apply ECR
-      working-directory: terraform
-      run: |
-        terraform apply -auto-approve -target=aws_ecr_repository.app \
-          -var="app_name=${{ env.APP_NAME }}"
+      # 5️⃣ Login to Amazon ECR
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
 
-    # 6️⃣ Login to Amazon ECR
-    - name: Login to Amazon ECR
-      id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v2
+      # 6️⃣ Build and push Docker image
+      - name: Build and Push Docker Image
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          REPOSITORY: ${{ env.APP_NAME }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          echo "Building Docker image..."
+          docker build -t $REGISTRY/$REPOSITORY:$IMAGE_TAG .
+          echo "Pushing Docker image..."
+          docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
 
-    # 7️⃣ Build Docker image and push to ECR
-    - name: Build and Push Docker image
-      env:
-        REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        REPOSITORY: ${{ env.APP_NAME }}
-        IMAGE_TAG: ${{ github.sha }}
-      run: |
-        echo "Building Docker image..."
-        docker build -t $REGISTRY/$REPOSITORY:$IMAGE_TAG .
-        echo "Pushing Docker image..."
-        docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
-
-    # 8️⃣ Terraform Apply remaining resources (ECS, Task, etc.)
-    - name: Terraform Apply ECS
-      working-directory: terraform
-      run: |
-        terraform apply -auto-approve \
-          -var="image_tag=${{ github.sha }}" \
-          -var="app_name=${{ env.APP_NAME }}"
+      # 7️⃣ Terraform Apply (ECR + ECS + everything)
+      - name: Terraform Apply
+        working-directory: terraform
+        run: |
+          terraform apply -auto-approve -input=false \
+            -var="app_name=${{ env.APP_NAME }}" \
+            -var="image_tag=${{ github.sha }}"
 
 
 
