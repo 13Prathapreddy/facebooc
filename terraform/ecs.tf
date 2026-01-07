@@ -1,21 +1,12 @@
-################################
-# ECS Cluster
-################################
 resource "aws_ecs_cluster" "this" {
   name = "${var.app_name}-cluster"
 }
 
-################################
-# CloudWatch Log Group
-################################
 resource "aws_cloudwatch_log_group" "ecs" {
   name              = "/ecs/${var.app_name}"
   retention_in_days = 7
 }
 
-################################
-# ECS Task Definition
-################################
 resource "aws_ecs_task_definition" "this" {
   family                   = var.app_name
   requires_compatibilities = ["FARGATE"]
@@ -29,40 +20,35 @@ resource "aws_ecs_task_definition" "this" {
     aws_cloudwatch_log_group.ecs
   ]
 
-  container_definitions = jsonencode([
-    {
-      name      = var.app_name
-      image     = "${aws_ecr_repository.app.repository_url}:${var.image_tag}"
-      essential = true
+  container_definitions = jsonencode([{
+    name      = var.app_name
+    image     = "${aws_ecr_repository.app.repository_url}:${var.image_tag}"
+    essential = true
 
-      portMappings = [
-        {
-          containerPort = 16000
-          hostPort      = 16000
-          protocol      = "tcp"
-        }
-      ]
+    portMappings = [{
+      containerPort = 16000
+      hostPort      = 16000
+      protocol      = "tcp"
+    }]
 
-      logConfiguration = {
-        logDriver = "awslogs"
-        options = {
-          awslogs-group         = "/ecs/${var.app_name}"
-          awslogs-region        = var.aws_region
-          awslogs-stream-prefix = "ecs"
-        }
+    logConfiguration = {
+      logDriver = "awslogs"
+      options = {
+        awslogs-group         = "/ecs/${var.app_name}"
+        awslogs-region        = var.aws_region
+        awslogs-stream-prefix = "ecs"
       }
     }
-  ])
+  }])
 }
 
-################################
-# ECS Service
-################################
 resource "aws_ecs_service" "this" {
+  count = var.deploy_ecs_service ? 1 : 0
+
   name            = "${var.app_name}-service"
   cluster         = aws_ecs_cluster.this.id
   task_definition = aws_ecs_task_definition.this.arn
-  desired_count   = 1   # ✅ ECS will start immediately
+  desired_count   = 1
   launch_type     = "FARGATE"
 
   network_configuration {
@@ -75,5 +61,9 @@ resource "aws_ecs_service" "this" {
   deployment_maximum_percent         = 200
 
   wait_for_steady_state = true
+
+  depends_on = [
+    aws_ecs_task_definition.this
+  ]
 }
 

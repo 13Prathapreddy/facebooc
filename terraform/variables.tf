@@ -8,6 +8,12 @@ variable "app_name" {
 
 variable "image_tag" {
   description = "Docker image tag from GitHub Actions"
-  type        = string
+  default     = ""  # optional for first apply
+}
+
+variable "deploy_ecs_service" {
+  description = "Whether to deploy ECS service"
+  type        = bool
+  default     = false
 }
 

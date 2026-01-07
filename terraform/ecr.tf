@@ -1,4 +1,3 @@
-#Create aws Res Repository
 resource "aws_ecr_repository" "app" {
   name = var.app_name
 
@@ -8,5 +7,4 @@ resource "aws_ecr_repository" "app" {
     prevent_destroy = false
   }
 }
-
 
