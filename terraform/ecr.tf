@@ -8,3 +8,4 @@ resource "aws_ecr_repository" "app" {
   }
 }
 
+# This is a comment
